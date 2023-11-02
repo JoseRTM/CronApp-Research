@@ -1,6 +1,6 @@
 ---
 title: "Introducción a R Markdown"
-author: "José A. Ruiz-Tagle M., MSc"
+author: "José A. Ruiz-Tagle M., MSc, Francisca Tapia A." 
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 output: html_document
 toc: true
