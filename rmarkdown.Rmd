@@ -1,0 +1,146 @@
+---
+title: "Introducción a R Markdown"
+author: "José A. Ruiz-Tagle M., MSc"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: html_document
+toc: true
+toc_depth: 2
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+RMarkdown nos sirve para formatear nuestra sintaxis en formatos como html, pdf o word. Empecemos por los títulos:
+
+# titulo 1
+
+## titulo 2
+
+### titulo 3
+
+Nuestras líneas de código debemos incluirlas dentro de los "chunk", que se despliegan presionando ctrl+alt+i
+
+```{r, warning = FALSE, message=FALSE}
+library(dplyr)
+library(ggplot2)
+path <- "https://raw.githubusercontent.com/JoseRTM/Clases/main/peso_rn.csv"
+data <- read.csv(path,header=T,sep=";")
+```
+
+Si no especificamos nada dentro del Chunk, el markdown quedará un poco "sucio". Es posible hacer varias modificaciones ( hay infinitas posibilidades). La opción `eval` muestra el código sin correrlo y sin desplegar resultados.
+
+```{r, eval=FALSE}
+summary(data)
+```
+
+La opcion `echo` corre el código sin mostrarlo, a la vez que muestra resultados.
+
+```{r, echo=FALSE}
+summary(data)
+```
+
+Por último, la opción `include=FALSE` solo corre el código
+
+```{r, include=FALSE}
+summary(data)
+```
+
+Respecto al texto, hay varias cosas que podemos incluir, por ejemplo [Data science UC-Curso de Rmarkdown](https://datascience.uc.cl/workshop.php) [Rmarkdown: Definitive guide](https://bookdown.org/yihui/rmarkdown/)o desplegar listas:
+
+-   EJEMPLO
+    -   a
+    -   b
+    -   c
+    -   d
+
+EJEMPLO
+
+1.  a
+2.  b
+3.  c
+4.  d
+
+## Gráficos
+
+Los gráficos tienen varias opciones, pero hay dos muy importantes: `fig.width` y `fig.height`.
+
+```{r}
+ggplot(data, aes(peso))+
+  geom_density() +
+  labs(title = "Density plot para peso del recién nacido",
+       x = "Peso(grs)")
+```
+
+```{r,echo=FALSE,fig.width=5,fig.height=3}
+ggplot(data, aes(peso))+
+  geom_density() +
+  labs(title = "Density plot para peso del recién nacido",
+       x = "Peso(grs)")
+```
+
+También podemos usar `fig.dim` y llegaremos al mismo resultado
+
+```{r,echo=FALSE,fig.dim=c(5,3)}
+ggplot(data, aes(peso))+
+  geom_density() +
+  labs(title = "Density plot para peso del recién nacido",
+       x = "Peso(grs)")
+```
+
+O cambiar la alineación con `fig.align`
+
+```{r,echo=FALSE,fig.width=5,fig.height=3, fig.align='center'}
+ggplot(data, aes(peso))+
+  geom_density() +
+  labs(title = "Density plot para peso del recién nacido",
+       x = "Peso(grs)")
+```
+
+## stargazer
+
+También, podemos utilizar stargazer para entregar tablas bonitas en el formato que decidamos.
+
+```{r, message=FALSE}
+library(stargazer)
+modelo <- lm(peso~tabaco+alcohol+edad_materna, data = data)
+modelo2 <- lm(peso~tabaco+alcohol, data = data)
+```
+
+```{r, include = FALSE}
+stargazer(modelo,modelo2, type = "html", title = "Modelos de regresión para estimar el peso del recién nacido",no.space = TRUE,header=FALSE,single.row = TRUE,
+          font.size = "small",
+          intercept.bottom = F,
+          column.labels = c("Modelo 1", "Modelo 2"),
+          column.separate = c(1, 1),
+          covariate.labels = c("Constant","Alcohol","Tabaco","Edad Materna"),
+          digits = 2,
+          t.auto = F,
+          p.auto = F)
+```
+
+|                     |
+|---------------------|
+|                     |
+|                     |
+|                     |
+|                     |
+|                     |
+|                     |
+|                     |
+| Constant            |
+| Alcohol             |
+| Tabaco              |
+| Edad Materna        |
+|                     |
+| Observations        |
+| R^2^                |
+| Adjusted R^2^       |
+| Residual Std. Error |
+| F Statistic         |
+|                     |
+| *Note:*             |
+
+: **Modelos de regresión para estimar el peso del recién nacido**
+
+
