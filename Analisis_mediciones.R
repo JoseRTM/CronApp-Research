@@ -15,7 +15,7 @@ Est_desc <- base_mediciones %>%
             N_desv = sd(MEDICION_NOCHE,na.rm = T),
             Dif_Promedio = mean(abs(MEDICION_MANANA - MEDICION_NOCHE), na.rm = TRUE))
 
-#Las mediciones de la mañana están más disperar que las de la noche
+#Las mediciones de la mañana están más dispersas que las de la noche
 #En la mañana la medicion más alta fue de 231 (p3), y la más baja de 97 (p2)
 #En la noche la medicion más alta fue de 200 (p3), y la más baja de 110 (p2)
 #Tanto  en la mañana como en la noche el paciente 3 tiene mediciones mas dispersas
@@ -40,6 +40,6 @@ ggplot(datos_combinados, aes(x = FECHA, y = ifelse(Tipo == "Mañana", MEDICION_M
   facet_wrap(~ ID, scales = "free_x", ncol = 1) +
   scale_color_manual(values = c("Mañana" = "orange", "Noche" = "blue"))
 
-#Las mediciones del paciente 3 se ven mucho más dispersas, lo que tiene sentido lo alta
+#Las mediciones del paciente 3 se ven mucho más dispersas, lo que tiene sentido considerando lo alta
 #que fue su desviacion estandar y dif promedio entre la mañana y la noche
 
