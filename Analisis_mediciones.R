@@ -33,7 +33,6 @@ datos_combinados <- bind_rows(
     mutate(Tipo = "Noche")
 )
 
-# Grafico glicemia mañana/noche
 ggplot(datos_combinados, aes(x = FECHA, y = ifelse(Tipo == "Mañana", MEDICION_MANANA, MEDICION_NOCHE), color = Tipo)) +
   geom_point() +
   labs(title = "Comaparacion entre los niveles de Glicemia en la mañana y noche",
