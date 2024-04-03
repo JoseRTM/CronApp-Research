@@ -1,12 +1,131 @@
-#Analisis grupo control
+#######################
+###CRONAPP RESEARCH###
+#######################
 
-#Paquetes 
-install.packages("ggplot2")
-library(ggplot2)
-install.packages("gridExtra")
-library(gridExtra)
-install.packages("readxl")
-library(readxl)
+#PACKAGES 
+pkg_names <- c("skimr","rio","readxl","dplyr", "ggplot2","epiDisplay",
+               "tidyverse", "httr", "nortest","gridExtra", "lmer")
+
+# Packages
+for (package in pkg_names) {
+  if (!require(package, character.only = TRUE)) {
+    install.packages(package)
+    library(package, character.only = TRUE)
+  }
+}
+
+# LOADING THE DATA
+# Set the URL of the Excel file in the GitHub repository
+file_url <- "https://github.com/JoseRTM/CronApp-Research/raw/main/datos_full.xlsx"
+
+# Download the file
+temp_file <- tempfile(fileext = ".xlsx")
+GET(file_url, write_disk(temp_file, overwrite = TRUE))
+
+# Load the data
+register <- import(temp_file, sheet = 1)
+baseline <- import(temp_file, sheet = 3)
+
+# JOIN
+baseline <- baseline %>% 
+  dplyr::select(-id)
+data <- register %>% 
+  dplyr::select(-id) %>% 
+  left_join(baseline, by = "user_id", relationship = "many-to-many") %>% 
+  dplyr::select(-created_at, -updated_at)
+
+# n 
+
+sum(table(unique(data$user_id)))
+# 41 participantes
+
+# BLOODSUGAR DISTRIBUTION
+ggplot(data, aes(x = bloodSugar)) +
+  geom_density()
+
+# A LOT OF OUTLIERS
+# RULE OF THUMB Q3-1.5*IQR
+data <- data %>% 
+  filter(bloodSugar<=(quantile(bloodSugar,0.75)+(1.5*IQR(bloodSugar))),
+         bloodSugar>=(quantile(bloodSugar,0.25)-(1.5*IQR(bloodSugar))))
+ggplot(data, aes(x = bloodSugar)) +
+  geom_density()
+# way better
+
+# normality
+model <- lmer(bloodSugar ~ 1 + (1 | user_id), data = data)
+residuals <- residuals(modelo)
+
+# QQ-plot
+qqnorm(residuals)
+qqline(residuals, col = "red")
+
+# Shapiro-Wilk
+shapiro.test(residuals)
+
+mean_by_patient <- data %>%
+  group_by(user_id) %>%
+  summarize(promedio_bloodSugar = mean(bloodSugar))
+
+shapiro.test(mean_by_patient$promedio_bloodSugar)
+
+# N° registries by patient
+data <- data %>%
+  group_by(user_id) %>%
+  mutate(n_medicion = n()) %>%
+  ungroup() %>% 
+  arrange(user_id)
+
+summary(data$n_medicion)
+
+# DUPLICATES
+data <- data %>%
+  group_by(user_id, measured_at) %>%
+  distinct() %>%
+  ungroup()
+data <- data %>%
+  group_by(user_id) %>%
+  mutate(n_medicion = n()) %>% 
+  ungroup()
+
+# FILTRAR A LA GENTE QUE NO SE MIDIO
+data <- data %>% 
+  filter(n_medicion > 3)
+
+mediciones_por_usuario <- data %>%
+  group_by(user_id) %>%
+  summarize(n_medicion = n())
+# Graficar la distribución del número de mediciones
+ggplot(mediciones_por_usuario, aes(x = n_medicion)) +
+  geom_histogram(binwidth = 10, fill = "blue", color = "black") +
+  labs(x = "Número de Mediciones por Usuario", y = "Frecuencia", title = "Distribución del Número de Mediciones por Usuario") +
+  theme_minimal()
+
+##########
+data <- data %>%
+  mutate(measured_date = as.Date(measured_at))
+
+data_promedio_diario <- data %>%
+  group_by(user_id, measured_date) %>%
+  summarize(promedio_bloodSugar = mean(bloodSugar, na.rm = TRUE)) %>%
+  ungroup() 
+
+ggplot(data_promedio_diario, aes(x = measured_date, y = promedio_bloodSugar, group = user_id)) +
+  geom_line(alpha = 0.3) + # Líneas individuales con transparencia
+  geom_smooth(se = FALSE) + # Líneas de tendencia suavizada por 'label'
+  facet_wrap(~ user_id, scales = "free_y") + # Facetas por 'label'
+  theme_minimal() +
+  labs(x = "Fecha", y = "Promedio de Glucosa en Sangre", title = "Tendencias de Glucosa en Sangre por Paciente y Grupo") +
+  theme(legend.position = "none") #
+
+
+
+###############
+### COSAS QUE HACER
+# HACER LA LIMPIEZA DE LA BASE DE DATOS DE CONTROL
+# HACER UN MERGE ENTRE LA BASE DE LA APP Y LA BASE DE CONTROL
+# REPRODUCTIR EL ANÁLISIS DE FORMA COMPARATIVA ENTRE LOS DOS GRUPOS
+
 
 #Cargar base
 Base_pacientes <- read_excel("Base_pacientes.xlsx")
