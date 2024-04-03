@@ -1,0 +1,119 @@
+---
+title: "Resultados app"
+author: "José RTM, Francisca Tapia"
+date: "2024-04-03"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, paquetes, include=FALSE}
+pkg_names <- c("skimr","rio","readxl","dplyr", "ggplot2","epiDisplay",
+               "tidyverse", "httr", "nortest","gridExtra","knitr","gt",
+               "lubridate")
+for (package in pkg_names) {
+  if (!require(package, character.only = TRUE)) {
+    install.packages(package)
+    library(package, character.only = TRUE)
+  }
+}
+```
+
+```{r, data, include=FALSE}
+file_url <- "https://github.com/JoseRTM/CronApp-Research/raw/main/datos_full.xlsx"
+
+# Download the file
+temp_file <- tempfile(fileext = ".xlsx")
+GET(file_url, write_disk(temp_file, overwrite = TRUE))
+
+# Load the data
+register <- import(temp_file, sheet = 1)
+baseline <- import(temp_file, sheet = 3)
+
+# JOIN
+baseline <- baseline %>% 
+  dplyr::select(-id)
+data <- register %>% 
+  dplyr::select(-id) %>% 
+  inner_join(baseline, by = "user_id", relationship = "many-to-many") %>% 
+  dplyr::select(-created_at, -updated_at) %>% 
+  mutate(imc = weight/(height/100)^2,
+         edad = year(Sys.Date()) - year(edad))
+
+```
+
+```{r, houseclean, echo=FALSE}
+str(data)
+# BLOODSUGAR DISTRIBUTION
+ggplot(data, aes(x = bloodSugar)) +
+  geom_density() +
+  labs(title = "Distribution of bloodsugar before outliers removal")
+
+# A LOT OF OUTLIERS
+# RULE OF THUMB Q3-1.5*IQR
+data <- data %>% 
+  filter(bloodSugar<=(quantile(bloodSugar,0.75)+(1.5*IQR(bloodSugar))),
+         bloodSugar>=(quantile(bloodSugar,0.25)-(1.5*IQR(bloodSugar))))
+# way better
+ggplot(data, aes(x = bloodSugar)) +
+  geom_density()+
+  labs(title="Distribution of bloodsugar after outliers removal")
+data <- data %>%
+  group_by(user_id, measured_at) %>%
+  distinct() %>%
+  ungroup()
+data <- data %>%
+  group_by(user_id) %>%
+  mutate(n_medicion = n()) %>% 
+  ungroup()
+
+# FILTRAR A LA GENTE QUE NO SE MIDIO
+data <- data %>% 
+  filter(n_medicion > 3)
+mediciones_por_usuario <- data %>%
+  group_by(user_id) %>%
+  summarize(n_medicion = n())
+
+```
+
+```{r, promedio diario, echo=FALSE, warning = FALSE, message = FALSE,fig.height=8, fig.width=10}
+data <- data %>%
+  mutate(measured_date = as.Date(measured_at))
+data_promedio_diario <- data %>%
+  group_by(user_id, measured_date) %>%
+  summarize(promedio_bloodSugar = mean(bloodSugar, na.rm = TRUE)) %>%
+  ungroup() 
+
+ggplot(data_promedio_diario, aes(x = measured_date, y = promedio_bloodSugar, group = user_id)) +
+  geom_line(alpha = 0.3) + # Líneas individuales con transparencia
+  geom_smooth(se = FALSE) + # Líneas de tendencia suavizada por 'label'
+  facet_wrap(~ user_id, scales = "free_y") + # Facetas por 'label'
+  theme_minimal() +
+  labs(x = "Fecha", y = "Promedio de Glucosa en Sangre", title = "Tendencias de Glucosa en Sangre por Paciente y Grupo") +
+  theme(legend.position = "none") #
+```
+
+```{r, baseline statistics, echo= FALSE}
+data_baseline <- data %>% 
+  group_by(user_id) %>% 
+  slice(1) %>% 
+  ungroup() %>% 
+  dplyr::select(imc, edad, height, weight, smoker, zapato_sem, pastilla_sem, dieta_sem, act_fisica_sem, glucosa_sem, ejercicio_sem, fruta_sem, pies_sem, insulina_sem, n_medicion)
+
+desc_stats <- data_baseline %>%
+  summarise(across(everything(), list(mean = ~round(mean(., na.rm = TRUE), 1), 
+                                      median = ~round(median(., na.rm = TRUE), 1), 
+                                      min = ~round(min(., na.rm = TRUE), 1), 
+                                      max = ~round(max(., na.rm = TRUE), 1), 
+                                      sd = ~round(sd(., na.rm = TRUE), 1)), 
+                     .names = "{.col}_{.fn}")) %>%
+  pivot_longer(cols = everything(), names_to = "Variable_Statistic", values_to = "Value") %>%
+  separate(col = Variable_Statistic, into = c("Variable", "Statistic"), sep = "_(?=[^_]+$)") %>%
+  pivot_wider(names_from = "Statistic", values_from = "Value")
+
+# Create the table
+kable(desc_stats, caption = "Baseline Descriptive Statistics", align = c("l", "r", "r", "r", "r", "r"))
+```
+

@@ -4,7 +4,8 @@
 
 #PACKAGES 
 pkg_names <- c("skimr","rio","readxl","dplyr", "ggplot2","epiDisplay",
-               "tidyverse", "httr", "nortest","gridExtra", "lmer")
+               "tidyverse", "httr", "nortest","gridExtra","stargazer","gt",
+               "lubridate")
 
 # Packages
 for (package in pkg_names) {
@@ -31,13 +32,18 @@ baseline <- baseline %>%
   dplyr::select(-id)
 data <- register %>% 
   dplyr::select(-id) %>% 
-  left_join(baseline, by = "user_id", relationship = "many-to-many") %>% 
-  dplyr::select(-created_at, -updated_at)
+  inner_join(baseline, by = "user_id", relationship = "many-to-many") %>% 
+  dplyr::select(-created_at, -updated_at) %>% 
+  mutate(imc = weight/(height/100)^2,
+         edad = year(Sys.Date()) - year(edad))
 
 # n 
 
 sum(table(unique(data$user_id)))
-# 41 participantes
+# 40 participantes
+
+# STRUCTURE OF THE DATA
+str(data)
 
 # BLOODSUGAR DISTRIBUTION
 ggplot(data, aes(x = bloodSugar)) +
@@ -48,26 +54,7 @@ ggplot(data, aes(x = bloodSugar)) +
 data <- data %>% 
   filter(bloodSugar<=(quantile(bloodSugar,0.75)+(1.5*IQR(bloodSugar))),
          bloodSugar>=(quantile(bloodSugar,0.25)-(1.5*IQR(bloodSugar))))
-ggplot(data, aes(x = bloodSugar)) +
-  geom_density()
 # way better
-
-# normality
-model <- lmer(bloodSugar ~ 1 + (1 | user_id), data = data)
-residuals <- residuals(modelo)
-
-# QQ-plot
-qqnorm(residuals)
-qqline(residuals, col = "red")
-
-# Shapiro-Wilk
-shapiro.test(residuals)
-
-mean_by_patient <- data %>%
-  group_by(user_id) %>%
-  summarize(promedio_bloodSugar = mean(bloodSugar))
-
-shapiro.test(mean_by_patient$promedio_bloodSugar)
 
 # N° registries by patient
 data <- data %>%
@@ -118,8 +105,39 @@ ggplot(data_promedio_diario, aes(x = measured_date, y = promedio_bloodSugar, gro
   labs(x = "Fecha", y = "Promedio de Glucosa en Sangre", title = "Tendencias de Glucosa en Sangre por Paciente y Grupo") +
   theme(legend.position = "none") #
 
+# BASELINE DESCRIPTIVE STATISTICS
+data_baseline <- data %>% 
+  group_by(user_id) %>% 
+  slice(1) %>% 
+  ungroup()
+
+sum(table(unique(data_baseline$user_id)))
+
+# PROPORTION OF SMOKERS
+mean(data_baseline$smoker) ## 33%
+summary(data_baseline$weight)
+summary(data_baseline$height)
+summary(data$imc) # its a character
 
 
+
+colSums(is.na(data_baseline))
+# normality
+model <- lmer(bloodSugar ~ 1 + (1 | user_id), data = data)
+residuals <- residuals(modelo)
+
+# QQ-plot
+qqnorm(residuals)
+qqline(residuals, col = "red")
+
+# Shapiro-Wilk
+shapiro.test(residuals)
+
+mean_by_patient <- data %>%
+  group_by(user_id) %>%
+  summarize(promedio_bloodSugar = mean(bloodSugar))
+
+shapiro.test(mean_by_patient$promedio_bloodSugar)
 ###############
 ### COSAS QUE HACER
 # HACER LA LIMPIEZA DE LA BASE DE DATOS DE CONTROL
